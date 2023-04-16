@@ -21,10 +21,10 @@ echo "DEPENDENCIES: $DEPENDENCIES"
 # Copy the dependencies to the deps directory
 for DEPENDENCY in $DEPENDENCIES; do
   echo "Copying in dep: $DEPENDENCY:"
-  DFL=$(locate "$DEPENDENCY" | grep -i iphoneos)
+  DFL=$(locate "$DEPENDENCY" | grep -i iphoneos | head -n 1)
 
   if [[ $DFL == *"framework"* ]]; then
-    echo "Copying in dir $(dirname "$DFL" | head -n 1)"
+    echo "outer Copying in dir $(dirname "$DFL" | head -n 1)"
     cp -r "$(dirname "$DFL" | head -n 1)" "$DEPS_DIR"
   else
     echo "Copying in file $DFL"
@@ -32,29 +32,52 @@ for DEPENDENCY in $DEPENDENCIES; do
   fi
 done
 
-# for DEPENDENCY_FILE in $DEPS_DIR/*; do
-for DEPENDENCY_FILE in $(find $DEPS_DIR/* -type f -perm +111 -exec sh -c 'file {} | head -n 1' \; | grep -E 'Mach-O 64-bit dynamically linked shared library arm64' | sed -n 's|\(^/[^:]*\): Mach-O.*|\1|p'); do
-  echo "Cur dep file or dir: $DEPENDENCY_FILE"
-  DEPENDENCY=$(basename "$DEPENDENCY_FILE")
-  echo "Running: otool -L $DEPENDENCY_FILE"
-  DEPENDENCY_DEPS=$(otool -L "$DEPENDENCY_FILE" | grep "@rpath" | awk '{print $1}' | sed 's/@rpath\///' | grep -v "$DEPENDENCY.framework")
-  echo "Deps found for $DEPENDENCY_FILE:"
-  echo $DEPENDENCY_DEPS
+function gatherDepsInDeps() {
+  DIDNTEXIST="YES"
+  while [ "$DIDNTEXIST" == "YES" ]; do
+    echo -e "\n\n\n*** Doing an iteration of dep gathering\n\n\n\n"
+    for DEPENDENCY_FILE in $(find $DEPS_DIR/* -type f -perm +111 -exec sh -c 'file {} | head -n 1' \; | grep -E 'Mach-O 64-bit dynamically linked shared library arm64' | sed -n 's|\(^/[^:]*\): Mach-O.*|\1|p'); do
+      echo "Cur dep file or dir: $DEPENDENCY_FILE"
+      DEPENDENCY=$(basename "$DEPENDENCY_FILE")
+      echo "Running: otool -L $DEPENDENCY_FILE"
+      DEPENDENCY_DEPS=$(otool -L "$DEPENDENCY_FILE" | grep "@rpath" | awk '{print $1}' | sed 's/@rpath\///' | grep -v "$DEPENDENCY.framework")
+      echo "Deps found for $DEPENDENCY_FILE:"
+      echo $DEPENDENCY_DEPS
 
-  echo "Copying in deps of deps"
-  for DEP in $DEPENDENCY_DEPS; do
-    DFL=$(locate "$DEP" | grep -i iphoneos)
-    echo "Searching for $DEP for iphone, found $DFL"
+      for DEP in $DEPENDENCY_DEPS; do
+        POSDEPLOC="$DEPS_DIR/$DEP"
+        echo "Check for existing $POSDEPLOC"
+        if [ ! -e "$POSDEPLOC" ]; then
+          DIDNTEXIST="NO"
+        fi
+      done
 
-    if [[ $DFL == *"framework"* ]]; then
-      echo "Copying in dir $(dirname "$DFL" | head -n 1)"
-      cp -r "$(dirname "$DFL" | head -n 1)" "$DEPS_DIR"
-    else
-      echo "Copying in file $DFL"
-      cp -r "$DFL" "$DEPS_DIR"
-    fi
+      echo "Copying in deps of deps"
+      for DEP in $DEPENDENCY_DEPS; do
+        DFL=$(locate "$DEP" | grep -i iphoneos | head -n 1)
+        echo "Searching for $DEP for iphone, found $DFL"
+
+        if [[ $DFL == *"framework"* ]]; then
+          echo "gatherDepsInDeps Copying in dir:"
+          echo $(dirname "$DFL")
+          echo -e "\n"
+          cp -rn $(dirname "$DFL") "$DEPS_DIR"
+        else
+          echo "Copying in file $DFL"
+          cp -rn "$DFL" "$DEPS_DIR"
+        fi
+      done
+    done
   done
-done
+}
+
+echo -e "\n\n\n\n\n\ngatherDepsInDeps\n\n"
+gatherDepsInDeps
+echo -e "\n\nDONE WITH gatherDepsInDeps 1\n\n"
+
+echo -e "\n\n\n\n\n\ngatherDepsInDeps P2\n\n"
+gatherDepsInDeps
+echo -e "\n\nDONE WITH gatherDepsInDeps 2\n\n"
 
 # Set the rpath for each dependency in the deps directory
 for DEPENDENCY_FILE in $DEPS_DIR/*; do
