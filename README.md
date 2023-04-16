@@ -16,6 +16,14 @@ So I wrote this tool to go and get all the dependencies of XCTest.. all the Priv
 
 
 
+The library I use here is poorly named.. I was going to hook the url open not from Frida but with ObjC hooking..
+
+With the app being SwiftUI I found it easiest to just do with Frida.. So libHandleURLScheme is really just Lyfts Hammer repo with an ObjC Bridge so you can
+easily use it from Frida. It can be found at:
+
+
+https://github.com/bebrws/dylibForSendingKeyboardTouchEvents
+
 
 
 # Example usage:
