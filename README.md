@@ -27,9 +27,10 @@ https://github.com/bebrws/dylibForSendingKeyboardTouchEvents
 
 
 # Example usage:
-
+```
 rm -rf deps; ./gatherAndFixLibs.sh ./libHandleURLScheme.dylib
 cp lib deps
+```
 
 Then copy all the of the files in deps to your apps Frameworks folder along with the dylib you are injecting
 Which is the arg to this script
